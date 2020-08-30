@@ -38,8 +38,9 @@ type messageBusType chan sharedMessage
 // Client is the client that connects to Twitch's pubsub servers
 type Client struct {
 	// Callbacks
-	onModerationAction func(channelID string, data *ModerationAction)
-	onBitsEvent        func(channelID string, data *BitsEvent)
+	onModerationAction   func(channelID string, data *ModerationAction)
+	onBitsEvent          func(channelID string, data *BitsEvent)
+	onChannelPointsEvent func(channelID string, data *ChannelPoints)
 
 	connectionManager *connectionManager
 
@@ -75,10 +76,12 @@ func NewClient(host string) *Client {
 	return c
 }
 
+// SetConnectionLimit ...
 func (c *Client) SetConnectionLimit(connectionLimit int) {
 	c.connectionManager.setConnectionLimit(connectionLimit)
 }
 
+// SetTopicLimit ...
 func (c *Client) SetTopicLimit(topicLimit int) {
 	c.connectionManager.setTopicLimit(topicLimit)
 }
@@ -93,7 +96,12 @@ func (c *Client) OnBitsEvent(callback func(channelID string, data *BitsEvent)) {
 	c.onBitsEvent = callback
 }
 
-// Connect starts attempting to connect to the pubsub host
+// OnChannelPointsEvent attaches the given callback to the channel points event
+func (c *Client) OnChannelPointsEvent(callback func(channelID string, data *ChannelPoints)) {
+	c.onChannelPointsEvent = callback
+}
+
+// Start Connect starts attempting to connect to the pubsub host
 func (c *Client) Start() error {
 	go c.connectionManager.run()
 
@@ -117,6 +125,14 @@ func (c *Client) Start() error {
 					continue
 				}
 				c.onBitsEvent(channelID, d)
+			case *ChannelPoints:
+				d := msg.Message.(*ChannelPoints)
+				channelID, err := parseChannelIDFromChannelPointsTopic(msg.Topic)
+				if err != nil {
+					log.Println("Error parsing channel id from bits topic:", err)
+					continue
+				}
+				c.onChannelPointsEvent(channelID, d)
 			default:
 				log.Println("unknown message in message bus")
 			}

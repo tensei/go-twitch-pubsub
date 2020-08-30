@@ -284,6 +284,15 @@ func (c *connection) parseMessage(b []byte) error {
 			Topic:   msg.Data.Topic,
 			Message: d,
 		}
+	case messageTypeChannelPointsEvent:
+		d, err := parseChannelPoints(innerMessageBytes)
+		if err != nil {
+			return err
+		}
+		c.messageBus <- sharedMessage{
+			Topic:   msg.Data.Topic,
+			Message: d,
+		}
 
 	default:
 		fallthrough
@@ -332,7 +341,7 @@ func (c *connection) parseResponse(b []byte) error {
 	} else {
 		for _, topic := range c.topics {
 			if topic.nonce == msg.Nonce {
-				fmt.Println("[go-twitch-pubsub] Error connecting to", topic.hash)
+				fmt.Printf("[go-twitch-pubsub] Error connecting to %s, %s\n", topic.hash, msg.Error)
 				topic.connected = true
 				return nil
 			}
